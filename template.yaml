@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  test github hooks
+
+Globals:
+  Function:
+    Timeout: 30
+
+Resources:
+  GitHubHooksFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: github-hooks/
+      Handler: github-hooks
+      Runtime: go1.x
+      Role: !GetAtt GitHubHooksRole.Arn
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            Path: /payload
+            Method: POST
+      Environment:
+        Variables:
+          GITHUB_APP_ID: <app id>
+          PRIVATE_KEY_SECRET_ARN: <secret-key arn>
+          WEBHOOK_SECRET: <wehook secret>
+  GitHubHooksFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${GitHubHooksFunction}
+      RetentionInDays: 14
+  GitHubHooksRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: read-cdk-github-app-secret-key
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: <secret-key arn>
+Outputs:
+  GitHubHooksAPIEndpoint:
+    Description: "GitHubHooks API Endpoint"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/payload"
